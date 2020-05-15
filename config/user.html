@@ -1,0 +1,476 @@
+
+<html lang="en">
+<head>
+		<link rel="icon" href="data:;base64,=">
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<title>充电桩用户主控测试页面</title>
+	<meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" name="viewport">
+</head>
+<style>
+.obox{overflow:hidden;}
+li{list-style-type:none;overflow:hidden;text-overflow: ellipsis;}
+.Attopic{display:block; float:left; width: 300px; height: 600px; overflow-y:scroll; border:3px solid green;}
+.Attopic li{height:30px; line-height:30px; cursor:pointer;}
+#contentId{ float:left; margin-left:30px;width:500px;}
+#sendMsgShowbox{width:400px;overflow: hidden;  border:1px solid red;}
+#sendMsgShowbox .sendMsgShow{width:100%;overflow: hidden; }
+#sendMsgShowbox p{line-height:25px;word-break:break-all;}
+#formDESC1{width:500px;overflow: hidden;}
+#formDESC1 p{line-height:25px;word-break:break-all;}
+#responseId{width:400px;overflow: hidden;   border:1px solid green;}
+.itemP{word-break:break-all;}
+
+li:hover{
+background:green;
+}
+
+</style>
+
+<body>
+
+<h2 align="center">right@2018 Growatt /充电桩用户主控页面2</h2>
+  <input type="hidden" name="useId" id="userId" value="user01">
+  <input type="hidden" name="cTransactionId" id="cTransactionId">
+<div>
+<form  id="uploadFile"  >
+         <input  type="file" name="myFile" id="exelFileId" multiple="multiple" />  
+     </form>
+  <p>上传的文件地址:<span id="myUpFile"></span></p>
+</div>
+
+
+<div>
+在线数：<label id="onlineNumber"></label> <br/>
+<div id="onlineCharges" align="left" style="overflow-x: hidden; word-break:break-all;border:1px solid #CCC;width:1000px;height:100px;margin:5px auto;">
+
+</div>
+当前选中监控的电桩ID：<font color="red" ><b><label id="selectChargeId"></label></b></font>
+</div>
+<div class="obox">
+<h5> ocpp 指令集合</h5>
+<ul class="Attopic" id="cmdItemList">
+
+</ul>
+<h5> 共查找(<font color="red" id="allTotal">${index}</font>)个指令信息</h5>
+<div id="contentId">
+<span>输入框:</span>
+  <div id="formInput">点击左则选中要发送的指令</div>
+    <br/>
+<button onclick="sendMsg()">发送</button> <br/>
+  <span>json schame 描述:</span>
+  <div id="formDESC1"><p id="formDESC"  style="color:blue;" >formInput</p></div>
+</div>
+
+<span>已经发送的数据:</span>
+<div id="sendMsgShowbox"><p id="sendMsgShow" style="color:red;"></p></div>
+
+<p>ocpp服务响应信息:<button onclick="ocpp_cleanDiv('responseId')">清屏</button></p>
+<div id="responseId" style="overflow:scroll; width:400px; height:500px;"> ocpp service</div>
+</div>
+
+
+<br>
+<!-- 
+向应数据：
+{"target":"电桩编号","data":"要向该电桩发送的数据"}</textarea>-->
+</body>
+</html>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript">
+var ocpp_actionList;
+var action_datas_obj={};
+var ocpp_base_translate;
+ var G_domain = window.location.host;
+pageIndex();
+	//9999
+	function  pageIndex(actionName){
+		var jsObj = {};
+		jsObj.lan="0";
+		jsObj.cmd="index";
+		var url= "http://"+G_domain+"/ocpp/user/";
+		$.ajax({
+			  type: 'POST',
+			  data:JSON.stringify(jsObj),
+			  url: url,
+			  contentType: "application/json",
+			  dataType:'json',
+			  success:function(data){
+			  	console.log(data);
+				//console.log(data.actionList);
+				//console.log(data.actions_translate);
+                  listCmds(data);
+			  }
+			});
+	}
+
+
+	function listCmds(data){
+
+		
+		var onlineItem = data.onlines;
+
+		var actionList = data.actionList;
+		var tranItem = JSON.parse(data.actions_translate);
+		//console.log(tranItem);
+		var htmStr="";
+		var htmStr2="";
+		for(var i=0;i<actionList.length;i++){
+			var ikey = actionList[i]+".json";
+
+			htmStr+='<li name="'+actionList[i]+'" onclick="selectAction(this)">'+tranItem[ikey]+'</li><li name="'+actionList[i]+'" onclick="selectAction(this)" >'+i+"&nbsp;&nbsp;&nbsp;"+actionList[i]+'</li>';
+
+		}
+		$("#cmdItemList").html(htmStr);
+		$("#allTotal").html(actionList.length);
+
+		for(var i=0;i<onlineItem.length;i++){
+		
+
+			htmStr2+='<a href="#" onclick="selectCharge(this)" name="'+ onlineItem[i]+'" >'+ onlineItem[i]+'</a> &nbsp; &nbsp;,';
+
+		}
+		$("#onlineCharges").html(htmStr2);
+		$("#onlineNumber").html(onlineItem.length);
+	}
+
+
+	function selectCharge(obj){
+		var chargeID=$(obj).attr("name");
+		$("#devSn").val(chargeID);
+		var userid = $("#userId").val();
+		var jsObj = {};
+		jsObj.chargeId=chargeID;
+		jsObj.userId=userid;
+		jsObj.cmd="selectCharge";
+		var url= "http://"+G_domain+"/ocpp/user/";
+		$.ajax({
+			  type: 'POST',
+			  data:JSON.stringify(jsObj),
+			  url: url,
+			  contentType: "application/json",
+			  dataType:'json',
+			  success:function(data){
+				console.log(data);
+				$("#selectChargeId").html(chargeID);
+			  }
+			});
+	}
+
+
+//console.log(domain);
+
+var echo_websocket;
+send_echo();
+function send_echo() {
+  echo_websocket=new WebSocket("ws://"+G_domain+"/ocpp/wsUser/user01");  
+  echo_websocket.onopen = function () {
+    console.log('Info: connection opened.');
+  };
+  echo_websocket.onmessage = function (event) {
+    console.log('Received: ' + event.data); //处理服务端返回消息
+
+    document.getElementById("responseId").innerHTML+=event.data+"<br/>";
+
+    var jsonArr = JSON.parse(event.data);
+    if(jsonArr && jsonArr.length>2){
+    	var icmd = jsonArr[2];
+    	if(icmd && icmd=='MeterValues'){
+         var ijsObj = jsonArr[3];
+         if(ijsObj){
+         	//ijsObj=JSON.parse(ijsObj);
+         	var trId = ijsObj['transactionId'];
+         	if(trId){
+         		$("#cTransactionId").val(trId);
+         	}
+         }
+
+    	}
+    }
+/*
+ocpp service[2,"13912","MeterValues",{"connectorId":1,"transactionId":4945,"meterValue":[{"timestamp":"2019-04-
+*/
+
+   // showMsgId(event.data);
+    
+  };
+  echo_websocket.onclose = function (event) {
+    console.log('Info: connection closed.');
+  };
+}
+//设置消息id
+function showMsgId(msg){
+	var msgs = msg.split("$");
+	var jsObj = msgs[1];
+	if(jsObj){
+		jsObj=JSON.parse(jsObj);
+		var cid = jsObj[1];
+		$("#msgId").val(cid);
+	}
+}
+	function sendMsg(){
+		//var tvalue = document.getElementById("msg").value;
+		var data= constructActionsTwo();
+		if(!data){
+			return;
+		}
+		var sn = $("#devSn").val();
+		var obj={};
+		obj.target=sn;
+		obj.data=data;
+		console.log("websocke send-----------");
+		console.log(obj);
+		echo_websocket.send(JSON.stringify(obj));
+	}
+	
+	function ocpp_cleanDiv(divId){
+		$("#"+divId).html("");
+	}
+	
+	//9999
+	function  selectAction(obj){
+		var actionName=$(obj).attr("name");
+		var jsObj = {};
+		jsObj.fileName=actionName;
+		jsObj.cmd="ocppJson";
+		var url= "http://"+G_domain+"/ocpp/user/";
+		$.ajax({
+			  type: 'POST',
+			  data:JSON.stringify(jsObj),
+			  url: url,
+			  contentType: "application/json",
+			  dataType:'json',
+			  success:function(data){
+				$("#formDESC").html("<div width='500'>"+JSON.stringify(data)+"</div>");
+				createFormHtml(data);
+			  }
+			});
+	}
+	
+	var ocpp_required_data;
+	//var PObject;
+	function createFormHtml(jsObj){
+		var sChargeIds = $("#selectChargeId").text();
+		ocpp_required_data=[];
+		//PObject =[];
+		var type=2;
+		var title=jsObj.title
+		if(title.indexOf("Response")>0){
+			type=3;
+		}
+		title = title.replace("Response","");
+		title = title.replace("Request","");
+		
+		var htmlStr='主机器id:<input type="text" id="devSn" value="'+sChargeIds+'" />String<font color="red">(在线电桩ID)</font><br/>信息类型:<input type="text" id="msgType" value="'+type+'" />int<br/>信息id:<input  type="text" id="msgId" value="'+new Date().getMilliseconds()+'" />String<br/>';
+		 htmlStr+='action:<input  type="text" id="doAction" value="'+title+'" size="50" />string<br/><br/>';
+		 var obj = jsObj.properties;
+		 htmlStr+='<div id="msgp"  style="border:1px solid red;width:500px;">';
+		 htmlStr+=doObject(obj,"pname");
+		 htmlStr+='</div>';
+		 if(jsObj.required){
+			 doRequrieKeys(jsObj.required);
+			 htmlStr+='必填字段:<font color="red">'+JSON.stringify(jsObj.required)+'</font>'; 
+		 }
+		
+		 $("#formInput").html(htmlStr);
+		 doAppendTag();
+	}
+	
+	function doAppendTag(){
+		for(var i=0;i<ocpp_required_data.length;i++){
+			var idKey = ocpp_required_data[i];
+			$("#"+idKey).after("<font color='red'><b>*</b></font>");
+		}
+	}
+	
+
+	function doObject(obj,pname){
+		
+		var htmlStr="";
+		var pkey;
+		for(pkey in obj){
+			 var item = obj[pkey];
+			 if(item.type=="object"){
+				// var teArr = PObject[pname];
+				 //if(!teArr){teArr =[];PObject[pname]=teArr}
+				 //PObject.push(pkey);
+				 htmlStr+='<div id="'+pkey+'" style="border:1px solid blue;"><span><b>'+pkey+'</b></span><br/>';
+				 var tObj = item['properties']
+				// htmlStr+= doObject(tObj,pkey,htmlStr);
+				 htmlStr+= doObject(tObj,pkey);
+				 if(item.required){
+					 htmlStr+='必填字段:<font color="red">'+JSON.stringify(item.required)+'</font>'; 
+					 doRequrieKeys(item.required);
+				 }
+				 htmlStr+="</div>"
+		}else{
+			 var format=item.format;
+			if(format && format=="date-time"){
+				//var ctime  =new Date().Format("yyyy-MM-dd hh:mm:ss");
+				var ctime  ="";
+				htmlStr+=pkey+':<input type="text" id="'+pkey+'" name="'+pname+'" value="'+ctime+'" data-type="'+item['type']+'"> ('+item['type']+')<br/>';
+			}else{
+				  if(item['type']=="array"){
+				 //当数据为数组的情况
+					 htmlStr+=pkey+':<input type="textarea"  name="'+pname+'"  style="width:300px;height:80px;overflow:scroll;" id="'+pkey+'" data-type="'+item['type']+'"> ('+item['type']+')<br/>';	
+				 }else{
+				 	var cvalue="";
+				 	if(pkey=="transactionId"){
+				 		//获取充电订单ID值
+				 		cvalue=$("#cTransactionId").val();
+				 	}
+				  htmlStr+=pkey+':<input type="text" id="'+pkey+'" name="'+pname+'" value="'+cvalue+'" data-type="'+item['type']+'"> ('+item['type']+')<br/>';	
+				 } 
+				 }
+			 if(item['enum']){
+				 htmlStr+='<font color="red">'+pkey+'</font><div style="width:500px;"><font color="green">可选择项:<p class="itemP" >'+item['enum']+'</p></font></div><br/>'; 
+			 }else{
+				 htmlStr+='<br/>'; 
+			 }
+			 if(item['type']=="array"){
+				 htmlStr+='<font color="red">'+pkey+'</font>列表结构：<p class="itemP">'+JSON.stringify(item['items'])+'</p><br/>'; 
+			 }
+		 }
+		}
+		return htmlStr;
+	}
+	
+//必填字段处理方法
+function doRequrieKeys(requiredKeys){
+	for(var i=0;i<requiredKeys.length;i++){
+		ocpp_required_data.push(requiredKeys[i]);
+	}
+	
+}
+	
+var all_data={};
+//获取html/input 里面的值
+	function constructActionsTwo(){
+		//console.log(PObject);
+		var data=[];
+		data.push(parseInt($("#msgType").val()));
+		data.push($("#msgId").val());
+		var action = $("#doAction").val();
+		if(action && action!=""){
+			data.push($("#doAction").val());
+		}
+		all_data={};
+		getDivInput("msgp") ;
+		data.push(all_data);
+		var dataStr = JSON.stringify(data);
+		$("#sendMsgShow").html(dataStr);
+		
+		console.log("------ocpp_required_data-----"+ocpp_required_data);
+		if(ocpp_required_data.length>0){
+			for(var i=0;i<ocpp_required_data.length;i++){
+				if(dataStr.indexOf(ocpp_required_data[i])<0){
+					//alert("["+ocpp_required_data[i]+"]必填项，没有填写完整或为空值，请重填!!");
+					//return false; //如果信息没填完整则直接返回，不再发送
+				}
+			}
+		
+		
+		}
+		return data;
+	}
+	
+	// 获取当前div 下的input值
+	function getDivInput(dkey,parentKey){
+		var child;
+		var inputs = $("#"+dkey).children("input");
+		 for(var n=0;n<inputs.length;n++){
+			var titem = inputs[n];
+			var type=$(titem).attr("data-type");
+			var value = $(titem).val();
+			if(type=="array" ){
+				if(value && value!=""){
+					value = JSON.parse(value); 
+				}
+			}
+			if(value && value!=""){
+			if(type=="integer" || type=="number"){
+			  value = parseInt(value);
+			}
+			if(!parentKey){
+				all_data[$(titem).attr("id")]=value;
+			}else{
+				if(!child){child={};}
+				child[$(titem).attr("id")]=value;
+			}
+			}
+		 }
+		 if(child){
+		 if(parentKey){
+			 if(!all_data[parentKey]){
+				 all_data[dkey]=child; 
+			 }else{
+				 all_data[parentKey][dkey] =child;
+			 }
+		   }
+		 }
+		 //对子div 进行遍历查找
+		 findChildDivData(dkey);
+	}
+	
+	//获取子节点的数据
+	function findChildDivData(pkey){
+	    var arrObj = $("#"+pkey).children("div");
+		for(var i=0;i<arrObj.length;i++){
+			var citem  = arrObj[i];
+			var keyId = $(citem).attr("id");
+			if(keyId){
+				//获取input 下值
+				 getDivInput(keyId,pkey);
+			 }
+			}
+		
+	}
+	
+	
+	
+	Date.prototype.Format = function (fmt) { //author: meizz 
+	    var o = {
+	        "M+": this.getMonth() + 1, //月份 
+	        "d+": this.getDate(), //日 
+	        "h+": this.getHours(), //小时 
+	        "m+": this.getMinutes(), //分 
+	        "s+": this.getSeconds(), //秒 
+	        "q+": Math.floor((this.getMonth() + 3) / 3), //季度 
+	        "S": this.getMilliseconds() //毫秒 
+	    };
+	    if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+	    for (var k in o)
+	    if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+	    return fmt;
+	}
+	
+	
+	//文件上传方法
+	
+	 $("input[type='file']").on("change",function(){  //input框的内容改变就ajax上传
+        var fileName = $("#exelFileId").val();
+	     if(fileName.indexOf(".bin")>0){
+	     }else{
+	     	alert("文件类型不对");
+	     	return;
+	     }
+         var formData = new FormData($( "#uploadFile" )[0]); 
+          var upServer= "http://"+G_domain+"/ocpp/uploadFile/";
+         $.ajax({
+             type: "POST",
+             contentType: false, 
+             processData: false,
+             url:upServer,  //url
+             data:formData,
+             async: false,
+             error: function(request) {
+                 alert("出错了");
+             },
+             success: function(data) {
+               $("#myUpFile").html("http://"+G_domain+data);
+             }
+        });
+  });
+
+	
+</script>
+
